@@ -1,0 +1,160 @@
+import json
+from google import genai
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Tuple, TypedDict, Union
+
+class PaperCheckResult(BaseModel):
+    Name: str = Field("", description="Paper taker's name or anything that hels identify the paper taker")
+    marks: int
+    remarks: List[str]
+    suggestions: List[str]
+    errors: List[str]
+
+class ProcessResult(TypedDict):
+    success: bool
+    error: str | None
+    results: List[Dict[str, Any]] | None
+
+def prepare_document(file_path: str) -> Dict[str, Any]:
+    """
+    Prepares the document and gets initial response
+    Returns: Dictionary with raw response
+    """
+    try:
+        # Initialize the Google AI client
+        client = genai.Client(api_key="AIzaSyD4lR1WQ1yaZumSFtMVTG_0Y8d0oRy1XhA")
+        
+        # Upload the file
+        uploaded_file = client.files.upload(file=file_path)
+        
+        # First prompt for general analysis
+        initial_prompt = """
+        Analyze this academic paper and provide feedback. Include:
+        1. Overall quality score (0-100)
+        2. Positive aspects of the paper
+        3. Areas that need improvement
+        4. Any errors or problems found
+        """
+        
+        # Get initial response
+        initial_response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=[uploaded_file, initial_prompt]
+        )
+        
+        return {
+            "success": True, 
+            "uploaded_file": uploaded_file,
+            "initial_response": initial_response.text
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Error preparing document: {str(e)}"}
+
+def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Takes initial response and converts it to structured format
+    Returns: Dictionary with structured results
+    """
+    try:
+        if not initial_result["success"]:
+            return initial_result
+            
+        client = genai.Client(api_key="AIzaSyD4lR1WQ1yaZumSFtMVTG_0Y8d0oRy1XhA")
+        
+        structure_prompt = f"""
+        Convert the following feedback into a structured JSON format:
+
+        {initial_result['initial_response']}
+
+        The JSON should have this structure:
+        {{  "Name": "Roll No or name of the paper taker if found, otherwise empty string",
+            "marks": integer (0-100) it should depend on how good remarks are and how many errors there are,
+            "remarks": [list of positive comments],
+            "suggestions": [list of improvement areas],
+            "errors": [list of problems found]
+        }}
+
+        IMPORTANT: Ensure marks is a valid integer between 0 and 100. If no specific score is found, use 0.
+        Ensure all arrays are empty lists [] instead of null when there are no items.
+        Ensure Name is an empty string "" if no name is found.
+        """
+        
+        # Get structured response
+        structured_response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=structure_prompt,
+            config={
+                'response_mime_type': 'application/json'
+            }
+        )
+
+        # Parse the response safely
+        try:
+            # Clean the response text to ensure it's valid JSON
+            response_text = structured_response.text.strip()
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+            
+            data = json.loads(response_text)
+            
+            # Ensure data structure is correct and all fields are valid
+            if isinstance(data, dict):
+                data["marks"] = int(data.get("marks", 0))  # Convert to int, default to 0
+                data["Name"] = str(data.get("Name", ""))  # Convert to string, default to empty string
+                data["remarks"] = list(data.get("remarks", []))
+                data["suggestions"] = list(data.get("suggestions", []))
+                data["errors"] = list(data.get("errors", []))
+            
+        except json.JSONDecodeError as e:
+            return {"success": False, "error": f"Failed to parse AI response: {str(e)}"}
+        except (ValueError, TypeError) as e:
+            return {"success": False, "error": f"Invalid value conversion: {str(e)}"}
+        
+        if not isinstance(data, list):
+            data = [data]
+            
+        results = [PaperCheckResult(**item) for item in data]
+        final_results = {"success": True, "results": [r.model_dump() for r in results]}
+        return final_results
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+def process_document(file_path: str) -> ProcessResult:
+    """
+    Main function that coordinates the document processing
+    """
+    try:
+        # First get raw analysis
+        initial_result = prepare_document(file_path)
+        if not initial_result["success"]:
+            return {"success": False, "error": initial_result["error"], "results": None}
+            
+        # Then convert to structured format
+        result = analyze_document(initial_result)
+        if not result["success"]:
+            return {"success": False, "error": result["error"], "results": None}
+            
+        return {"success": True, "error": None, "results": result["results"]}
+        
+    except Exception as e:
+        return {"success": False, "error": str(e), "results": None}
+
+if __name__ == "__main__":
+    file_path = 'F:/Aniruddha/code/webdev/PROJECTS/teacherassistant/ai5.pdf'
+    result = process_document(file_path)
+    
+    if result["success"]:
+        for paper_result in result["results"]:
+            print(f"Name: {paper_result['Name']}")
+            print(f"Marks: {paper_result['marks']}")
+            print(f"Remarks: {paper_result['remarks']}")
+            print(f"Suggestions: {paper_result['suggestions']}")
+            print(f"Errors: {paper_result['errors']}")
+            print("-" * 50)
+    else:
+        print("Error:", result["error"])
