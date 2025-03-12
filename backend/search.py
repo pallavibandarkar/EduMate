@@ -9,7 +9,7 @@ def google_search(query: str) -> Tuple[str, List[str]]:
     Returns a tuple containing (text_response, search_links)
     """
     try:
-        client = genai.Client(api_key='AIzaSyAqA979bDpQE6j0cHZ1tOBzVwZ3gq9FzeA')
+        client = genai.Client(api_key='')
         
         response = client.models.generate_content(
             model='gemini-2.0-flash',
