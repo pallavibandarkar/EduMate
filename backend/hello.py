@@ -1,4 +1,7 @@
 import json
+import requests
+import os
+import tempfile
 from google import genai
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Tuple, TypedDict, Union
@@ -14,6 +17,30 @@ class ProcessResult(TypedDict):
     success: bool
     error: str | None
     results: List[Dict[str, Any]] | None
+
+def download_from_url(url: str) -> Tuple[str, str]:
+    """
+    Downloads a file from a URL to a temporary file
+    Returns: Tuple of (temp_file_path, filename)
+    """
+    try:
+        # Get filename from URL
+        filename = url.split("/")[-1]
+        
+        # Download the file to a temporary location
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for 4XX/5XX responses
+        
+        # Create temporary file with appropriate extension
+        file_ext = os.path.splitext(filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as temp_file:
+            for chunk in response.iter_content(chunk_size=8192):
+                temp_file.write(chunk)
+            temp_path = temp_file.name
+        
+        return temp_path, filename
+    except Exception as e:
+        raise Exception(f"Error downloading file: {str(e)}")
 
 def prepare_document(file_path: str) -> Dict[str, Any]:
     """
@@ -124,11 +151,22 @@ def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-def process_document(file_path: str) -> ProcessResult:
+def process_document(file_path_or_url: str) -> ProcessResult:
     """
     Main function that coordinates the document processing
+    Accepts either a local file path or a URL
     """
+    temp_file = None
     try:
+        # Check if the input is a URL
+        if file_path_or_url.startswith(('http://', 'https://')):
+            # Download the file from URL
+            temp_file, filename = download_from_url(file_path_or_url)
+            file_path = temp_file
+        else:
+            # Use the provided file path directly
+            file_path = file_path_or_url
+        
         # First get raw analysis
         initial_result = prepare_document(file_path)
         if not initial_result["success"]:
@@ -143,10 +181,18 @@ def process_document(file_path: str) -> ProcessResult:
         
     except Exception as e:
         return {"success": False, "error": str(e), "results": None}
+    finally:
+        # Clean up temporary file if it was created
+        if temp_file and os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except:
+                pass
 
 if __name__ == "__main__":
-    file_path = 'F:/Aniruddha/code/webdev/PROJECTS/teacherassistant/ai5.pdf'
-    result = process_document(file_path)
+    # Example file URL from Cloudinary
+    file_url = "https://res.cloudinary.com/dvqkoleje/image/upload/v1741875116/EduMate/fcrikg6o5twe58iyqo7v.pdf"
+    result = process_document(file_url)
     
     if result["success"]:
         for paper_result in result["results"]:
