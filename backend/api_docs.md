@@ -2,15 +2,20 @@
 
 ## Authentication
 
-All API endpoints can be secured with an API key. To use authentication:
+Authentication for API endpoints is optional by default in development environments.
 
-1. Set the `API_KEY` environment variable 
-2. Include the API key in requests with the `X-API-Key` header
+To enable authentication:
+
+1. Set the `API_AUTH_REQUIRED=true` environment variable
+2. Set the `API_KEY` environment variable with your desired API key
+3. Include the API key in requests with the `X-API-Key` header
 
 Example:
 ```
 curl -X GET http://localhost:8000/sessions -H "X-API-Key: your-api-key"
 ```
+
+Note: For local development, the default configuration allows all requests without authentication.
 
 ## Session Management
 
@@ -35,7 +40,28 @@ Request body (optional):
 }
 ```
 
-Creates a new chat session and returns its ID.
+Parameters:
+- `session_name` (optional): A name for the session. Defaults to "Untitled Session" if not provided.
+
+Internal fields (automatically initialized):
+- `session_id`: Unique identifier for the session (UUID)
+- `history`: Empty array to store conversation history
+- `processed_documents`: Empty array to track processed documents 
+- `info_messages`: Empty array for information messages
+- `rewritten_query`: Empty object for query rewriting data
+- `search_sources`: Empty array for search sources
+- `doc_sources`: Empty array for document sources
+- `use_web_search`: Boolean flag, set to true by default
+
+Response:
+```json
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "session_name": "Physics Questions"
+}
+```
+
+Creates a new chat session and returns its ID and name.
 
 ### Get Session Details
 
@@ -108,37 +134,16 @@ Request body:
 }
 ```
 
-Processes a chat message and returns a response using RAG and/or web search.
+Processes a chat message and returns a response using integrated features:
+- Automatically rewrites the query for better information retrieval
+- Searches documents in the vector store for relevant information
+- Uses Google Search when needed or when forced via `force_web_search: true`
+- Combines information from multiple sources to generate a comprehensive response
 
-### Rewrite Query
-
-```
-POST /chat/rewrite-query
-```
-
-Request body:
-```json
-{
-  "query": "How gravity work?"
-}
-```
-
-Rewrites a query to make it more effective for information retrieval.
-
-### Perform Web Search
-
-```
-POST /chat/search
-```
-
-Request body:
-```json
-{
-  "query": "Latest research on quantum computing"
-}
-```
-
-Performs a Google search and returns the results and source links.
+The response includes:
+- The generated answer
+- A list of sources used (documents and/or web search results)
+- The session ID
 
 ## Health Check
 

@@ -91,14 +91,27 @@ def process_pdf(file) -> List:
     """Process PDF file and add source metadata."""
     try:
         file_path = None
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(file.getvalue())
-            file_path = tmp_file.name
+        # Check if file is a Streamlit UploadFile or a file-like object
+        if hasattr(file, 'getvalue'):
+            # Streamlit UploadFile object
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                tmp_file.write(file.getvalue())
+                file_path = tmp_file.name
+        elif hasattr(file, 'read'):
+            # File-like object from FastAPI
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+                tmp_file.write(file.read())
+                file_path = tmp_file.name
+        else:
+            # Assume file is a path string
+            file_path = file
             
         # Use the new document processor instead
         return prepare_document(file_path)
     except Exception as e:
-        st.error(f"📄 PDF processing error: {str(e)}")
+        if 'st' in globals():
+            st.error(f"📄 PDF processing error: {str(e)}")
+        print(f"PDF processing error: {str(e)}")
         return []
 
 
@@ -163,16 +176,33 @@ def process_image(file) -> List:
     """Process image file and add source metadata."""
     try:
         file_path = None
-        # Determine file extension from the uploaded file name
-        file_ext = os.path.splitext(file.name)[1].lower()
+        file_ext = '.png'  # Default extension
         
-        # Create temporary file with appropriate extension
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
-            tmp_file.write(file.getvalue())
-            file_path = tmp_file.name
+        # Check if file is a Streamlit UploadFile
+        if hasattr(file, 'getvalue'):
+            # Determine file extension from the uploaded file name
+            file_ext = os.path.splitext(file.name)[1].lower()
+            # Create temporary file with appropriate extension
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                tmp_file.write(file.getvalue())
+                file_path = tmp_file.name
+        # Check if file is a file-like object
+        elif hasattr(file, 'read'):
+            # Try to get name if available
+            if hasattr(file, 'name'):
+                file_ext = os.path.splitext(file.name)[1].lower() or file_ext
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                tmp_file.write(file.read())
+                file_path = tmp_file.name
+        else:
+            # Assume file is a path string
+            file_path = file
             
         # Use the document processor to handle the image
         return prepare_document(file_path)
     except Exception as e:
-        st.error(f"🖼️ Image processing error: {str(e)}")
+        if 'st' in globals():
+            st.error(f"🖼️ Image processing error: {str(e)}")
+        print(f"Image processing error: {str(e)}")
         return []
