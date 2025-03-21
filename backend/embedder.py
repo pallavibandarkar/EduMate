@@ -57,7 +57,7 @@ def init_pinecone(api_key=None):
         return None
 
 
-def create_vector_store(pc_client, texts, namespace: Optional[str] = None):
+def create_vector_store(pc_client, texts, namespace: Optional[str] = None, curriculum_id: Optional[str] = None):
     """
     Create and initialize vector store with documents.
     
@@ -65,11 +65,16 @@ def create_vector_store(pc_client, texts, namespace: Optional[str] = None):
         pc_client: Pinecone client instance
         texts: Documents to add to the vector store
         namespace: Optional namespace for isolating chat session data
+        curriculum_id: Optional curriculum ID to use as namespace
     """
     try:
         # Initialize vector store
         index = pc_client.Index(INDEX_NAME)
         
+        # Use curriculum_id as namespace if provided (takes precedence)
+        if curriculum_id:
+            namespace = curriculum_id
+            
         vector_store = PineconeVectorStore(
             index=index,
             embedding=GeminiEmbedder(),
@@ -89,7 +94,7 @@ def create_vector_store(pc_client, texts, namespace: Optional[str] = None):
         return None
 
 
-def check_document_relevance(query: str, vector_store, threshold: float = 0.7, namespace: Optional[str] = None) -> Tuple[bool, List[Document]]:
+def check_document_relevance(query: str, vector_store, threshold: float = 0.7, namespace: Optional[str] = None, curriculum_id: Optional[str] = None) -> Tuple[bool, List[Document]]:
     """
     Check if documents in vector store are relevant to the query.
     
@@ -98,12 +103,17 @@ def check_document_relevance(query: str, vector_store, threshold: float = 0.7, n
         vector_store: The vector store to search in
         threshold: Similarity threshold
         namespace: Optional namespace to search within
+        curriculum_id: Optional curriculum ID to use as namespace
         
     Returns:
         tuple[bool, List]: (has_relevant_docs, relevant_docs)
     """
     if not vector_store:
         return False, []
+    
+    # Use curriculum_id as namespace if provided (takes precedence)
+    if curriculum_id:
+        namespace = curriculum_id
     
     # Set the namespace if provided and not already set in vector_store
     if namespace and not getattr(vector_store, 'namespace', None):
