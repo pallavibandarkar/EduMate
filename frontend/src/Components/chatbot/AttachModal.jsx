@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X, Upload, Link, AlertCircle, RefreshCw, FileText } from 'lucide-react';
-import { processDocument, processUrl } from '../utils/api';
+import { processDocument, processUrl } from '../../utils/api';
 
 const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
   const [url, setUrl] = useState('');
@@ -165,19 +165,19 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-gray-500/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
       <div
-        className="bg-background rounded-xl w-full max-w-lg mx-4 shadow-xl animate-slide-up border border-border"
+        className="bg-white rounded-xl w-full max-w-lg mx-4 shadow-xl animate-slide-up border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-xl font-medium">Attach</h2>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h2 className="text-xl font-medium text-gray-900">Attach</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-secondary rounded-full transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
             aria-label="Close"
           >
-            <X size={18} />
+            <X size={18} className="text-gray-500" />
           </button>
         </div>
 
@@ -187,8 +187,8 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
             <div
               className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
                 isDragging
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                  ? 'border-blue-600 bg-blue-50'
+                  : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
               }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -197,19 +197,19 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
             >
               {!fileDetails ? (
                 <>
-                  <Upload className="mx-auto mb-4 text-muted-foreground" size={32} />
-                  <p className="mb-2 font-medium">Upload files</p>
-                  <p className="text-sm text-muted-foreground mb-2">Drag and drop or click to browse</p>
-                  <p className="text-xs text-muted-foreground mb-4">
+                  <Upload className="mx-auto mb-4 text-gray-500" size={32} />
+                  <p className="mb-2 font-medium text-gray-800">Upload files</p>
+                  <p className="text-sm text-gray-500 mb-2">Drag and drop or click to browse</p>
+                  <p className="text-xs text-gray-500 mb-4">
                     Supported formats: PDF, PNG, JPG, GIF, WEBP<br/>
                     Max size: 10MB
                   </p>
                 </>
               ) : (
                 <div className="flex flex-col items-center">
-                  <FileText className="mx-auto mb-2 text-primary" size={32} />
-                  <p className="font-medium text-ellipsis overflow-hidden max-w-full">{fileDetails.name}</p>
-                  <p className="text-xs text-muted-foreground">{fileDetails.size} · {fileDetails.type}</p>
+                  <FileText className="mx-auto mb-2 text-blue-600" size={32} />
+                  <p className="font-medium text-ellipsis overflow-hidden max-w-full text-gray-800">{fileDetails.name}</p>
+                  <p className="text-xs text-gray-500">{fileDetails.size} · {fileDetails.type}</p>
                 </div>
               )}
               
@@ -233,7 +233,7 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
                         setFileDetails(null);
                         setError('');
                       }}
-                      className="px-4 py-2 border border-border hover:bg-secondary rounded-lg text-sm font-medium"
+                      className="px-4 py-2 border border-gray-300 hover:bg-gray-100 rounded-lg text-sm font-medium text-gray-800"
                     >
                       Change file
                     </button>
@@ -242,7 +242,7 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
                   <button
                     type="button"
                     disabled={isLoading}
-                    className="px-4 py-2 button-primary rounded-lg text-sm font-medium"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
                   >
                     {isLoading ? 'Processing...' : 'Select files'}
                   </button>
@@ -253,8 +253,8 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
 
           {/* URL Input */}
           <div>
-            <h3 className="flex items-center gap-2 mb-3 text-base font-medium">
-              <Link size={18} />
+            <h3 className="flex items-center gap-2 mb-3 text-base font-medium text-gray-800">
+              <Link size={18} className="text-gray-600" />
               Attach URL
             </h3>
             <form onSubmit={handleUrlSubmit}>
@@ -264,7 +264,7 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="Enter a publicly accessible URL"
-                  className="flex-1 input-glass rounded-lg px-4 py-2"
+                  className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-gray-800"
                   disabled={isLoading}
                 />
                 <button
@@ -272,8 +272,8 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
                   disabled={isLoading || !url}
                   className={`px-4 py-2 rounded-lg font-medium transition-all ${
                     isLoading || !url
-                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                      : 'button-primary'
+                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
                   Attach
@@ -283,7 +283,7 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
           </div>
 
           {error && (
-            <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg text-sm animate-fade-in">
+            <div className="p-4 bg-red-50 border border-red-100 text-red-600 rounded-lg text-sm animate-fade-in">
               <div className="flex items-start gap-2">
                 <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
@@ -298,19 +298,19 @@ const AttachModal = ({ isOpen, onClose, sessionId, onDocumentProcessed }) => {
                             setError('');
                             fileInputRef.current?.click();
                           }}
-                          className="flex items-center gap-1.5 text-xs font-medium hover:underline text-foreground/80"
+                          className="flex items-center gap-1.5 text-xs font-medium hover:underline text-gray-700"
                         >
                           Try different file
                         </button>
                         <button 
                           onClick={() => processFile(lastUploadedFile)}
-                          className="flex items-center gap-1.5 text-xs font-medium hover:underline text-foreground/80"
+                          className="flex items-center gap-1.5 text-xs font-medium hover:underline text-gray-700"
                         >
                           <RefreshCw size={14} />
                           Try again
                         </button>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-gray-500">
                         {error.includes('No text could be extracted') ? (
                           'Tips: Try converting scanned documents to searchable PDFs first, or use a document with embedded text.'
                         ) : (

@@ -1,12 +1,17 @@
 import uuid
-import streamlit as st
 from typing import Dict, Any, List, Tuple, Optional
 from langchain_pinecone import PineconeVectorStore
 import traceback
+import logging
+import os
 
 from utils.supabase_client import initialize_supabase
 from embedder import INDEX_NAME, GeminiEmbedder
 from agents.writeragents import generate_session_title
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
 supabase_client = initialize_supabase()
@@ -156,14 +161,14 @@ def get_session_vector_store(pinecone_client, session_state):
             index = pinecone_client.Index(INDEX_NAME)
             vector_store = PineconeVectorStore(
                 index=index,
-                embedding=GeminiEmbedder(),
+                embedding=GeminiEmbedder(api_key=os.getenv("GOOGLE_API_KEY", "")),
                 text_key="text",
                 namespace=session_id
             )
             session_state.session_vector_stores[session_id] = vector_store
             return vector_store
         except Exception as e:
-            st.error(f"Error initializing vector store: {e}")
+            logger.error(f"Error initializing vector store: {e}")
     
     return None
 
@@ -205,6 +210,7 @@ def save_current_session(session_state):
             session_state.supabase_errors = []
         session_state.supabase_errors.append(error_message)
         session_state.supabase_errors.append("Failed to save session. Please try again or check your Supabase connection.")
+        logger.error(f"Failed to save session: {error_message}")
     
     # Update available sessions list
     sessions_list, sessions_error = get_available_sessions()
@@ -213,6 +219,7 @@ def save_current_session(session_state):
         if 'supabase_errors' not in session_state:
             session_state.supabase_errors = []
         session_state.supabase_errors.append(sessions_error)
+        logger.error(f"Failed to get available sessions: {sessions_error}")
     else:
         session_state.available_sessions = sessions_list
     
@@ -228,6 +235,7 @@ def load_session_data(session_id, session_state, pinecone_client):
             session_state.supabase_errors = []
         session_state.supabase_errors.append(error_message)
         session_state.supabase_errors.append("Failed to load session. Please try again or check your Supabase connection.")
+        logger.error(f"Failed to load session: {error_message}")
         return False
     
     if session_data:
@@ -250,12 +258,14 @@ def load_session_data(session_id, session_state, pinecone_client):
             if 'supabase_errors' not in session_state:
                 session_state.supabase_errors = []
             session_state.supabase_errors.append(f"Error processing session data: {str(e)}")
+            logger.error(f"Error processing session data: {str(e)}")
             return False
     
     # Store warning in persistent state instead of displaying directly
     if 'supabase_errors' not in session_state:
         session_state.supabase_errors = []
     session_state.supabase_errors.append("No session data found")
+    logger.warning("No session data found")
     return False
 
 def create_new_session(session_state):
@@ -268,6 +278,7 @@ def create_new_session(session_state):
         if 'supabase_errors' not in session_state:
             session_state.supabase_errors = []
         session_state.supabase_errors.append(f"Failed to save current session before creating new one: {str(e)}")
+        logger.error(f"Failed to save current session before creating new one: {str(e)}")
     
     # Generate a new session ID
     new_session_id = str(uuid.uuid4())

@@ -1,10 +1,15 @@
-import streamlit as st
 import google.generativeai as genai
 from typing import List, Tuple, Optional
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Constants
 INDEX_NAME = "gemini-thinking-agent-agno"
@@ -12,8 +17,8 @@ EMBEDDING_DIMENSION = 768  # Gemini embedding-004 dimension
 
 class GeminiEmbedder(Embeddings):
     def __init__(self, model_name="models/text-embedding-004", api_key=None):
-        # Use provided API key or get from session state
-        api_key = api_key or st.session_state.get("google_api_key", "")
+        # Use provided API key or get from environment
+        api_key = api_key or os.getenv("GOOGLE_API_KEY", "")
         genai.configure(api_key=api_key)
         self.model = model_name
 
@@ -31,8 +36,8 @@ class GeminiEmbedder(Embeddings):
 
 def init_pinecone(api_key=None):
     """Initialize Pinecone client with configured settings."""
-    # Use provided API key or get from session state
-    api_key = api_key or st.session_state.get("pinecone_api_key", "")
+    # Use provided API key or get from environment
+    api_key = api_key or os.getenv("PINECONE_API_KEY", "")
     if not api_key:
         return None
         
@@ -49,11 +54,11 @@ def init_pinecone(api_key=None):
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region="us-east-1")
             )
-            st.success(f"📚 Created new index: {INDEX_NAME}")
+            logger.info(f"Created new index: {INDEX_NAME}")
             
         return pc
     except Exception as e:
-        st.error(f"🔴 Pinecone connection failed: {str(e)}")
+        logger.error(f"Pinecone connection failed: {str(e)}")
         return None
 
 
@@ -83,14 +88,14 @@ def create_vector_store(pc_client, texts, namespace: Optional[str] = None, curri
         )
         
         # Add documents
-        with st.spinner('📤 Uploading documents to Pinecone...'):
-            vector_store.add_documents(texts)
-            ns_msg = f" in namespace '{namespace}'" if namespace else ""
-            st.success(f"✅ Documents stored successfully{ns_msg}!")
-            return vector_store
+        logger.info('Uploading documents to Pinecone...')
+        vector_store.add_documents(texts)
+        ns_msg = f" in namespace '{namespace}'" if namespace else ""
+        logger.info(f"Documents stored successfully{ns_msg}")
+        return vector_store
             
     except Exception as e:
-        st.error(f"🔴 Vector store error: {str(e)}")
+        logger.error(f"Vector store error: {str(e)}")
         return None
 
 

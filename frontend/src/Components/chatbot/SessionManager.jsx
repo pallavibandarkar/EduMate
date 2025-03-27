@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, PenLine, Trash2 } from 'lucide-react';
-import { getSessions, createSession, deleteSession } from '../utils/api';
+import { getSessions, createSession, deleteSession } from '../../utils/api';
 
 const SessionDrawer = ({ isOpen, onClose, currentSessionId, onSessionChange, className }) => {
   const [sessions, setSessions] = useState([]);
@@ -72,7 +72,7 @@ const SessionDrawer = ({ isOpen, onClose, currentSessionId, onSessionChange, cla
       onClick={onClose}
     >
       <div
-        className="fixed inset-y-0 left-0 w-80 bg-card shadow-xl z-40 animate-slide-up border-r border-sidebar-border"
+        className="fixed inset-y-0 left-0 w-80 bg-white shadow-xl z-40 animate-slide-in-left border-r border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-sidebar-border">

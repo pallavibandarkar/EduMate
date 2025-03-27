@@ -2,13 +2,18 @@ import tempfile
 from datetime import datetime
 from typing import List, Tuple, Optional
 import os
+import logging
+from pathlib import Path
 
-import streamlit as st
 import bs4
 from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from google import genai
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def prepare_document(file_path: str) -> List[Document]:
     """
@@ -22,8 +27,8 @@ def prepare_document(file_path: str) -> List[Document]:
         List[Document]: List containing the processed document
     """
     try:
-        # Use API key from session state or environment
-        api_key = st.session_state.get("google_api_key", os.getenv("GEMINI_API_KEY", ""))
+        # Use API key from environment
+        api_key = os.getenv("GEMINI_API_KEY", "")
         client = genai.Client(api_key=api_key)
         
         # Upload the file
@@ -60,7 +65,7 @@ def prepare_document(file_path: str) -> List[Document]:
         )
         
         content = response.text
-        print(f"Generated content length: {len(content)}")
+        logger.info(f"Generated content length: {len(content)}")
         
         # Create a Document object
         doc = Document(
@@ -78,12 +83,12 @@ def prepare_document(file_path: str) -> List[Document]:
             chunk_overlap=200
         )
         chunks = text_splitter.split_documents([doc])
-        print(f"Number of document chunks: {len(chunks)}")
+        logger.info(f"Number of document chunks: {len(chunks)}")
         
         return chunks
         
     except Exception as e:
-        st.error(f"📄 Document processing error: {str(e)}")
+        logger.error(f"Document processing error: {str(e)}")
         return []
 
 # Keep existing functions for backward compatibility
@@ -109,9 +114,7 @@ def process_pdf(file) -> List:
         # Use the new document processor instead
         return prepare_document(file_path)
     except Exception as e:
-        if 'st' in globals():
-            st.error(f"📄 PDF processing error: {str(e)}")
-        print(f"PDF processing error: {str(e)}")
+        logger.error(f"PDF processing error: {str(e)}")
         return []
 
 
@@ -128,10 +131,10 @@ def load_web_document(url: str) -> List:
     try:
         loader = WebBaseLoader(url)
         docs = loader.load()
-        print(f"Number of web documents loaded: {len(docs)}")
+        logger.info(f"Number of web documents loaded: {len(docs)}")
         return docs
     except Exception as e:
-        st.error(f"🌐 Web loading error: {str(e)}")
+        logger.error(f"Web loading error: {str(e)}")
         return []
 
 
@@ -157,7 +160,7 @@ def extract_title_and_split_content(docs: List) -> Tuple[Optional[str], List]:
         chunk_overlap=200
     )
     content_chunks = text_splitter.split_documents(docs)
-    print(f"Number of content chunks after splitting: {len(content_chunks)}")
+    logger.info(f"Number of content chunks after splitting: {len(content_chunks)}")
     
     return title, content_chunks
 
@@ -169,7 +172,7 @@ def process_web(url: str) -> List:
         return []
     
     title, content_chunks = extract_title_and_split_content(docs)
-    print(f"Title of the web document: {title}")  # Print statement
+    logger.info(f"Title of the web document: {title}")
     return content_chunks
 
 def process_image(file) -> List:
@@ -202,7 +205,5 @@ def process_image(file) -> List:
         # Use the document processor to handle the image
         return prepare_document(file_path)
     except Exception as e:
-        if 'st' in globals():
-            st.error(f"🖼️ Image processing error: {str(e)}")
-        print(f"Image processing error: {str(e)}")
+        logger.error(f"Image processing error: {str(e)}")
         return []

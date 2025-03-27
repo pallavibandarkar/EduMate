@@ -74,22 +74,31 @@ def get_curriculum_step(step_id: str) -> Optional[Dict[str, Any]]:
         Optional[Dict[str, Any]]: Curriculum step data or None if not found
     """
     try:
+        print(f"DEBUG: get_curriculum_step called for step_id={step_id}")
+        
         # Initialize Supabase client
         supabase = initialize_supabase()
         if not supabase:
-            print("Failed to initialize Supabase client")
+            print("DEBUG: ERROR - Failed to initialize Supabase client")
             return None
             
         # Query Supabase
+        print(f"DEBUG: Querying Supabase for step_id={step_id}")
         response = supabase.table("curriculum_steps").select("*").eq("step_id", step_id).execute()
         
         if response and response.data and len(response.data) > 0:
-            return response.data[0]
+            print(f"DEBUG: Found curriculum step with ID {step_id}")
+            step_data = response.data[0]
+            print(f"DEBUG: Step data keys: {list(step_data.keys())}")
+            return step_data
             
+        print(f"DEBUG: ERROR - No curriculum step found with ID {step_id}")
         return None
         
     except Exception as e:
-        print(f"Error getting curriculum step from Supabase: {e}")
+        print(f"DEBUG: ERROR getting curriculum step from Supabase: {e}")
+        import traceback
+        print(traceback.format_exc())
         return None
 
 def get_all_curriculum_steps() -> List[Dict[str, Any]]:

@@ -57,6 +57,37 @@ from utils.supabase_client import initialize_supabase
 
 from agents.intentdetectorAgent import detect_google_search_intent
 
+# Import curriculum service
+from curriculum_service import (
+    CurriculumRequest,
+    CurriculumModificationRequest,
+    CurriculumResponse,
+    StepDetailResponse,
+    generate_curriculum,
+    get_curriculum,
+    modify_curriculum_by_id,
+    generate_curriculum_details,
+    get_step_detail
+)
+
+# Import curriculum service with new functions
+from curriculum_service import (
+    CurriculumRequest,
+    CurriculumModificationRequest,
+    CurriculumResponse,
+    StepDetailResponse,
+    CurriculumListResponse,
+    CurriculumCreateRequest,
+    generate_curriculum,
+    get_curriculum,
+    modify_curriculum_by_id,
+    generate_curriculum_details,
+    get_step_detail,
+    get_all_curriculums,
+    create_curriculum,
+    delete_curriculum_by_id
+)
+
 # Load environment variables
 load_dotenv()
 
@@ -173,13 +204,35 @@ class CreateSessionResponse(BaseModel):
     session_id: str
     session_name: str
 
-# Helper function to get or create session vector store
+# Performance tracking dictionary
+performance_metrics = {
+    "vector_store_creation_time": [],
+    "vector_store_query_time": [],
+    "session_load_time": [],
+    "session_save_time": [],
+    "api_response_time": {},
+    "gemini_api_calls": 0
+}
+
+# Helper function to get or create session vector store with caching and performance tracking
 def get_session_vector_store(session_id: str):
+    import time
+    start_time = time.time()
+    
     if session_id in app_state["session_vector_stores"]:
         return app_state["session_vector_stores"][session_id]
     
     if app_state["pinecone_client"]:
         try:
+            # Check if we have too many namespaces already (Pinecone can have limits)
+            if len(app_state["session_vector_stores"]) > 100:  # Adjust this threshold as needed
+                # Remove least recently used vector stores to prevent namespace explosion
+                # This is a simple implementation - consider a more sophisticated LRU cache
+                oldest_sessions = sorted(app_state["session_vector_stores"].keys())[:10]
+                for old_session in oldest_sessions:
+                    del app_state["session_vector_stores"][old_session]
+                print(f"Cleaned up {len(oldest_sessions)} old vector store sessions")
+            
             index = app_state["pinecone_client"].Index("gemini-thinking-agent-agno")
             from embedder import GeminiEmbedder
             vector_store = PineconeVectorStore(
@@ -189,6 +242,13 @@ def get_session_vector_store(session_id: str):
                 namespace=session_id
             )
             app_state["session_vector_stores"][session_id] = vector_store
+            
+            # Track performance metric
+            creation_time = time.time() - start_time
+            performance_metrics["vector_store_creation_time"].append(creation_time)
+            if creation_time > 1.0:  # Log slow operations
+                print(f"WARNING: Slow vector store creation: {creation_time:.2f}s for session {session_id}")
+                
             return vector_store
         except Exception as e:
             print(f"Error initializing vector store: {e}")
@@ -665,6 +725,123 @@ Rewritten Question: {rewritten_query}
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing message: {str(e)}")
+
+# CURRICULUM API ENDPOINTS - PLURAL FORM (RECOMMENDED)
+@app.get("/curriculums", response_model=CurriculumListResponse, dependencies=[Depends(get_api_key)])
+async def list_curriculums():
+    """Get a list of all available curriculums"""
+    try:
+        result = get_all_curriculums()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listing curriculums: {str(e)}")
+
+@app.post("/curriculums", dependencies=[Depends(get_api_key)])
+async def create_new_curriculum(request: CurriculumCreateRequest):
+    """Create a new empty curriculum"""
+    try:
+        result = create_curriculum(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating curriculum: {str(e)}")
+
+@app.get("/curriculums/{curriculum_id}", response_model=CurriculumResponse, dependencies=[Depends(get_api_key)])
+async def get_curriculum_by_id(curriculum_id: str):
+    """Get a specific curriculum by ID"""
+    try:
+        result = get_curriculum(curriculum_id)
+        return result
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error retrieving curriculum: {str(e)}")
+
+@app.delete("/curriculums/{curriculum_id}", dependencies=[Depends(get_api_key)])
+async def delete_curriculum(curriculum_id: str):
+    """Delete a specific curriculum"""
+    try:
+        success = delete_curriculum_by_id(curriculum_id)
+        return {"success": success, "message": f"Curriculum {curriculum_id} deleted"}
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error deleting curriculum: {str(e)}")
+
+# CURRICULUM API ENDPOINTS - SINGULAR FORM (KEPT FOR BACKWARD COMPATIBILITY)
+@app.post("/curriculum", response_model=CurriculumResponse, dependencies=[Depends(get_api_key)])
+async def create_curriculum_endpoint(request: CurriculumRequest):
+    """Generate a new curriculum based on subject, syllabus URL, and time constraint"""
+    try:
+        result = generate_curriculum(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating curriculum: {str(e)}")
+
+@app.get("/curriculum/{curriculum_id}", response_model=CurriculumResponse, dependencies=[Depends(get_api_key)])
+async def retrieve_curriculum(curriculum_id: str):
+    """Get a specific curriculum by ID"""
+    try:
+        result = get_curriculum(curriculum_id)
+        return result
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error retrieving curriculum: {str(e)}")
+
+@app.put("/curriculum/{curriculum_id}", response_model=CurriculumResponse, dependencies=[Depends(get_api_key)])
+async def update_curriculum(curriculum_id: str, request: CurriculumModificationRequest):
+    """Modify a curriculum based on the modification request"""
+    try:
+        result = modify_curriculum_by_id(curriculum_id, request)
+        return result
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error modifying curriculum: {str(e)}")
+
+@app.post("/curriculum/{curriculum_id}/details", response_model=Dict[str, StepDetailResponse], dependencies=[Depends(get_api_key)])
+async def create_curriculum_details(curriculum_id: str):
+    """Generate detailed content for all steps in a curriculum"""
+    try:
+        result = generate_curriculum_details(curriculum_id)
+        # Convert integer keys to strings for JSON serialization
+        return {str(k): v for k, v in result.items()}
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error generating curriculum details: {str(e)}")
+
+@app.get("/curriculum/{curriculum_id}/details/{step_index}", response_model=StepDetailResponse, dependencies=[Depends(get_api_key)])
+async def retrieve_step_detail(curriculum_id: str, step_index: int):
+    """Get detailed content for a specific step"""
+    try:
+        result = get_step_detail(curriculum_id, step_index)
+        return result
+    except Exception as e:
+        if "not found" in str(e):
+            raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error retrieving step detail: {str(e)}")
+
+from grader import process_document
+from pydantic import BaseModel
+from fastapi import HTTPException, Depends
+
+class GradeRequest(BaseModel):
+    file_url: str
+
+@app.post("/grade", dependencies=[Depends(get_api_key)])
+async def grade_document(request: GradeRequest):
+    """Grade a document from a URL"""
+    try:
+        result = process_document(request.file_url)
+        
+        if result['success']:
+            return {"success": True, "results": result['results']}
+        else:
+            raise HTTPException(status_code=500, detail=result['error'])
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error grading document: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn

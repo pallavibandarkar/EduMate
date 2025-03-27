@@ -67,12 +67,27 @@ export const getSessionSources = async (sessionId) => {
 
 // Chat functionality
 export const sendMessage = async (content, sessionId = null, forceWebSearch = false) => {
-  const response = await api.post('/chat', {
-    content,
-    session_id: sessionId,
-    force_web_search: forceWebSearch,
-  });
-  return response.data;
+  try {
+    const response = await api.post('/chat', {
+      content,
+      session_id: sessionId,
+      force_web_search: forceWebSearch,
+    });
+    
+    // Log the response structure for debugging
+    console.log('API response structure:', Object.keys(response.data));
+    
+    if (response.data.baseline_response) {
+      console.log('Received baseline response from API:', response.data.baseline_response.substring(0, 50) + '...');
+    } else {
+      console.log('No baseline_response field in API response');
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('API error in sendMessage:', error);
+    throw error;
+  }
 };
 
 export default api;

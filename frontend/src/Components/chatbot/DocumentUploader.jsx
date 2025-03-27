@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { processDocument, processUrl } from '../utils/api';
+import { processDocument, processUrl } from '../../utils/api';
 
 const DocumentUploader = ({ sessionId, onDocumentProcessed }) => {
   const [url, setUrl] = useState('');

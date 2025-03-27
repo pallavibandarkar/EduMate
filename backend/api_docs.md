@@ -152,3 +152,55 @@ GET /health
 ```
 
 Returns the current status of the API and its dependencies.
+
+## Curriculum Management
+
+### Get All Curriculums
+
+```
+GET /curriculums
+```
+
+Returns a list of all available curriculums.
+
+### Create a New Curriculum
+
+```
+POST /curriculums
+```
+
+Request body:
+```json
+{
+  "curriculum_name": "Math Curriculum"
+}
+```
+
+Parameters:
+- `curriculum_name` (required): A name for the curriculum.
+
+Response:
+```json
+{
+  "curriculum_id": "550e8400-e29b-41d4-a716-446655440000",
+  "curriculum_name": "Math Curriculum"
+}
+```
+
+Creates a new curriculum and returns its ID and name.
+
+### Get Curriculum Details
+
+```
+GET /curriculums/{curriculum_id}
+```
+
+Returns details about a specific curriculum.
+
+### Delete a Curriculum
+
+```
+DELETE /curriculums/{curriculum_id}
+```
+
+Deletes a specific curriculum.

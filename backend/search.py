@@ -1,7 +1,16 @@
 from google import genai
 from google.genai import types
 from typing import List, Tuple
-import streamlit as st
+import logging
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def google_search(query: str) -> Tuple[str, List[str]]:
     """
@@ -9,7 +18,7 @@ def google_search(query: str) -> Tuple[str, List[str]]:
     Returns a tuple containing (text_response, search_links)
     """
     try:
-        client = genai.Client(api_key='AIzaSyAqA979bDpQE6j0cHZ1tOBzVwZ3gq9FzeA')
+        client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", ""))
         
         response = client.models.generate_content(
             model='gemini-2.0-flash',
@@ -39,5 +48,5 @@ def google_search(query: str) -> Tuple[str, List[str]]:
                             
         return response.text, links
     except Exception as e:
-        st.error(f"🔍 Google search error: {str(e)}")
+        logger.error(f"Google search error: {str(e)}")
         return "", []

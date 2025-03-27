@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Upload, Search } from 'lucide-react';
+import { Send, Upload, Globe } from 'lucide-react';
 
 const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
   const [message, setMessage] = useState('');
@@ -35,11 +35,11 @@ const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
 
   return (
     <form onSubmit={handleSubmit} className="relative max-w-3xl mx-auto w-full">
-      <div className="relative flex items-end rounded-lg bg-input shadow-lg border border-border">
+      <div className="relative flex items-end rounded-lg bg-gray-50 shadow-lg border border-gray-200">
         <button
           type="button"
           onClick={onAttach}
-          className="p-3 text-muted-foreground hover:text-foreground transition-colors"
+          className="p-3 text-gray-500 hover:text-gray-800 transition-colors"
           disabled={isLoading}
           aria-label="Attach document"
         >
@@ -54,7 +54,7 @@ const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
           placeholder="Ask anything..."
           disabled={isLoading}
           rows={1}
-          className="flex-1 bg-transparent border-0 resize-none py-3 px-2 focus:ring-0 focus:outline-none text-foreground placeholder-muted-foreground max-h-[200px] min-h-[44px]"
+          className="flex-1 bg-transparent border-0 resize-none py-3 px-2 focus:ring-0 focus:outline-none text-gray-800 placeholder-gray-500 max-h-[200px] min-h-[44px]"
         />
         
         <div className="flex items-center pr-2 gap-1 mb-1">
@@ -63,13 +63,13 @@ const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
             onClick={() => setForceWebSearch(!forceWebSearch)}
             className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-sm transition-all duration-200 cursor-pointer ${
               forceWebSearch 
-                ? 'bg-primary text-primary-foreground ring-2 ring-primary/50' 
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                ? 'bg-blue-600 text-white ring-2 ring-blue-200' 
+                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200'
             }`}
             title={forceWebSearch ? "Web search enabled" : "Enable web search"}
             aria-label={forceWebSearch ? "Disable web search" : "Enable web search"}
           >
-            <Search size={20} className="translate-y-0" />
+            <Globe size={20} className="translate-y-0" />
           </button>
           
           <button
@@ -77,8 +77,8 @@ const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
             disabled={!message.trim() || isLoading}
             className={`inline-flex items-center justify-center w-9 h-9 rounded-md transition-all duration-200 ${
               message.trim() && !isLoading
-                ? 'text-primary hover:bg-secondary cursor-pointer'
-                : 'text-muted-foreground cursor-not-allowed'
+                ? 'text-blue-600 hover:bg-gray-200 cursor-pointer'
+                : 'text-gray-400 cursor-not-allowed'
             }`}
             aria-label="Send message"
           >
@@ -89,7 +89,7 @@ const MessageInput = ({ onSendMessage, isLoading, onAttach }) => {
       
       {isLoading && (
         <div className="absolute left-0 right-0 -bottom-6 text-center">
-          <span className="text-xs text-muted-foreground animate-pulse-subtle">
+          <span className="text-xs text-gray-500 animate-pulse-subtle">
             Processing...
           </span>
         </div>

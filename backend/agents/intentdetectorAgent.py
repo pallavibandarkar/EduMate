@@ -2,8 +2,12 @@ import os
 from google import genai
 from typing import Dict, Any, Tuple
 from pydantic import BaseModel
+from dotenv import load_dotenv
 
-api_key = "AIzaSyD4lR1WQ1yaZumSFtMVTG_0Y8d0oRy1XhA"
+# Load environment variables
+load_dotenv()
+
+api_key = os.getenv("GEMINI_API_KEY", "")
 client = genai.Client(api_key=api_key)
 
 class GoogleSearchIntentResult(BaseModel):
