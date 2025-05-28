@@ -6,10 +6,11 @@ import logging
 from pathlib import Path
 
 import bs4
-from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader
+from langchain_community.document_loaders import PyPDFLoader, WebBaseLoader, CSVLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from google import genai
+from google.generativeai import types
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -27,16 +28,22 @@ def prepare_document(file_path: str) -> List[Document]:
         List[Document]: List containing the processed document
     """
     try:
-        # Use API key from environment
+        # Handle API key retrieval from environment
         api_key = os.getenv("GEMINI_API_KEY", "")
         client = genai.Client(api_key=api_key)
-        
-        # Upload the file
-        uploaded_file = client.files.upload(file=file_path)
         
         # Determine appropriate prompt based on file type
         file_extension = os.path.splitext(file_path)[1].lower()
         
+        # Upload the file directly using a simpler approach
+        try:
+            uploaded_file = client.files.upload(file=file_path)
+            logger.info(f"File uploaded successfully: {uploaded_file}")
+        except Exception as upload_error:
+            logger.error(f"File upload failed: {str(upload_error)}")
+            raise ValueError(f"File upload failed: {str(upload_error)}")
+
+        # Build appropriate prompt based on file type
         if file_extension in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
             prompt = """
             Please analyze and describe this image in detail. Include:
@@ -47,25 +54,56 @@ def prepare_document(file_path: str) -> List[Document]:
             5. Overall meaning and context
             """
             source_type = "image"
+        elif file_extension in ['.csv', '.xlsx', '.xls']:
+            prompt = """
+            Please analyze this CSV data thoroughly. For each row and column:
+            1. Extract all data in a structured format
+            2. List all column headers
+            3. Provide a summary of the data
+            4. Include all numerical values and text content exactly as they appear
+            5. Preserve any relationships between data points
+            """
+            source_type = "csv"
         else:
             prompt = """
-            Please analyze and summarize this document in detail. Include:
-            1. Type of content and main subject
-            2. Key information or facts
-            3. Structure and organization
-            4. Main arguments or points
-            5. Overall context and significance
+            just type all the content of the document in a single line without any formatting.
+            if there is any image describe it in detail.
             """
             source_type = "document"
-        
-        # Generate content
-        response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[uploaded_file, prompt],
-        )
-        
-        content = response.text
-        logger.info(f"Generated content length: {len(content)}")
+
+        # Generate content with a simpler approach
+        try:
+            # First try non-streaming method as fallback if needed
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[uploaded_file, prompt],
+                )
+                content = response.text
+                logger.info(f"Generated content using non-streaming method, length: {len(content)}")
+            except Exception as non_streaming_error:
+                logger.error(f"Non-streaming attempt failed: {str(non_streaming_error)}")
+                # Try streaming as backup
+                response_chunks = []
+                for chunk in client.models.generate_content_stream(
+                    model="gemini-2.0-flash",
+                    contents=[uploaded_file, prompt],
+                ):
+                    if hasattr(chunk, 'text') and chunk.text:
+                        response_chunks.append(chunk.text)
+                    
+                if not response_chunks:
+                    raise ValueError("No content received from the streaming API")
+                    
+                content = "".join(response_chunks)
+                logger.info(f"Generated content using streaming method, length: {len(content)}")
+            
+            if not content:
+                raise ValueError("Empty content received from the API")
+                
+        except Exception as generation_error:
+            logger.error(f"Detailed generation error: {str(generation_error)}")
+            raise ValueError(f"Content generation failed: {str(generation_error)}")
         
         # Create a Document object
         doc = Document(
@@ -89,7 +127,8 @@ def prepare_document(file_path: str) -> List[Document]:
         
     except Exception as e:
         logger.error(f"Document processing error: {str(e)}")
-        return []
+        # Re-raise the exception with a clearer message
+        raise ValueError(f"No text content could be extracted from the file: {str(e)}")
 
 # Keep existing functions for backward compatibility
 def process_pdf(file) -> List:
@@ -207,3 +246,67 @@ def process_image(file) -> List:
     except Exception as e:
         logger.error(f"Image processing error: {str(e)}")
         return []
+
+def process_csv(file) -> List:
+    """Process CSV file and add source metadata."""
+    try:
+        file_path = None
+        # Check if file is a Streamlit UploadFile or a file-like object
+        if hasattr(file, 'getvalue'):
+            # Streamlit UploadFile object
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
+                tmp_file.write(file.getvalue())
+                file_path = tmp_file.name
+        elif hasattr(file, 'read'):
+            # File-like object from FastAPI
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.csv') as tmp_file:
+                tmp_file.write(file.read())
+                file_path = tmp_file.name
+        else:
+            # Assume file is a path string
+            file_path = file
+            
+        # First try using CSVLoader directly
+        try:
+            # Use CSVLoader to process the CSV file
+            loader = CSVLoader(file_path=file_path)
+            documents = loader.load()
+            
+            # Add metadata to each document
+            for doc in documents:
+                doc.metadata.update({
+                    "source_type": "csv",
+                    "file_name": os.path.basename(file_path),
+                    "timestamp": datetime.now().isoformat()
+                })
+            
+            # Apply text splitting
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200
+            )
+            chunks = text_splitter.split_documents(documents)
+            
+            logger.info(f"Number of CSV document chunks: {len(chunks)}")
+            
+            # If we got chunks, return them
+            if chunks and len(chunks) > 0:
+                return chunks
+                
+            # Otherwise, fall back to prepare_document
+            logger.info("CSVLoader did not return any chunks, falling back to prepare_document")
+        except Exception as csv_loader_error:
+            logger.error(f"CSVLoader error, falling back to prepare_document: {str(csv_loader_error)}")
+            
+        # Fallback: Use the document processor with improved CSV handling
+        chunks = prepare_document(file_path)
+        
+        # Make sure we got chunks
+        if not chunks or len(chunks) == 0:
+            raise ValueError("Could not extract any content from the CSV file")
+            
+        return chunks
+    except Exception as e:
+        logger.error(f"CSV processing error: {str(e)}")
+        # Raise the error instead of returning an empty list
+        raise ValueError(f"Failed to process CSV file: {str(e)}")

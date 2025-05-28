@@ -825,6 +825,12 @@ async def retrieve_step_detail(curriculum_id: str, step_index: int):
 from grader import process_document
 from pydantic import BaseModel
 from fastapi import HTTPException, Depends
+import logging
+import traceback
+
+# Configure logging for the grade endpoint
+grade_logger = logging.getLogger('grade_endpoint')
+grade_logger.setLevel(logging.INFO)
 
 class GradeRequest(BaseModel):
     file_url: str
@@ -832,15 +838,24 @@ class GradeRequest(BaseModel):
 @app.post("/grade", dependencies=[Depends(get_api_key)])
 async def grade_document(request: GradeRequest):
     """Grade a document from a URL"""
+    grade_logger.info(f"Received grading request for file: {request.file_url}")
     try:
+        grade_logger.info("Calling process_document function")
         result = process_document(request.file_url)
+        grade_logger.info(f"process_document returned success={result['success']}")
         
         if result['success']:
+            grade_logger.info(f"Grading successful, returning results with {len(result['results'])} items")
             return {"success": True, "results": result['results']}
         else:
-            raise HTTPException(status_code=500, detail=result['error'])
+            error_msg = result.get('error', 'Unknown error')
+            grade_logger.error(f"Grading failed with error: {error_msg}")
+            raise HTTPException(status_code=500, detail=f"Error grading document: {error_msg}")
             
     except Exception as e:
+        grade_logger.error(f"Unexpected exception in grade_document endpoint: {str(e)}")
+        grade_logger.error(f"Exception type: {type(e).__name__}")
+        grade_logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error grading document: {str(e)}")
 
 if __name__ == "__main__":
