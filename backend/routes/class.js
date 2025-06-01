@@ -42,19 +42,19 @@ route.get('/submissions/:id', isLoggedin,async (req, res) => {
                 {
                     path: 'submissions',
                     populate: {
-                        path: 'studentId', // Populate studentId in submissions
+                        path: 'studentId', 
                     }
                 },
                 {
                     path: 'submissions',
                     populate: {
-                        path: 'aiGrade' // Populate aiGrade in submissions
+                        path: 'aiGrade' 
                     }
                 },
                 {
                     path: 'submissions',
                     populate: {
-                        path: 'assignmentId' // Populate aiGrade in submissions
+                        path: 'assignmentId' 
                     }
                 },
                 
@@ -75,6 +75,42 @@ route.get('/submissions/:id', isLoggedin,async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 });
+
+
+route.put("/updateScore/:id",async(req,res)=>{
+    try {
+        const { score } = req.body;
+
+        if (score < 0) {
+            return res.status(400).json({ msg: "Invalid score. It must be a non-negative number." });
+        }
+
+        const submission = await Submission.findById(req.params.id);
+
+        if (!submission) {
+            return res.status(404).json({ msg: "Submission not found." });
+        }
+
+        if (!submission.aiGrade) {
+            return res.status(400).json({ msg: "No AI grade associated with this submission." });
+        }
+
+        const updatedAigrade = await Aigrade.findByIdAndUpdate(
+            submission.aiGrade,
+            { $set: { score: score } },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedAigrade) {
+            return res.status(404).json({ msg: "AI Grade record not found." });
+        }
+
+        res.status(200).json({ msg: "Score updated successfully!", data: updatedAigrade });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ msg: "Server error" });
+    }
+})
 
 module.exports = route;
 

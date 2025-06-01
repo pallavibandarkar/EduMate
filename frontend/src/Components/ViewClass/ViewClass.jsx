@@ -25,6 +25,8 @@ const ViewClass = ({user}) => {
     const [activeTab, setActiveTab] = useState("assignments");
     const [announcementContent, setAnnouncementContent] = useState("");
     const [submissionStats, setSubmissionStats] = useState({});
+    const [updatedScores, setUpdatedScores] = useState({});
+    const [openAssignmentId, setOpenAssignmentId] = useState(null);
 
     useEffect(() => {
         const fetchClassDetails = async () => {
@@ -198,6 +200,43 @@ const ViewClass = ({user}) => {
         ],
     };
 
+     const handleScoreChange = (submissionId, newScore) => {
+        setUpdatedScores((prevScores) => ({
+            ...prevScores,
+            [submissionId]: newScore,
+        }));
+    };
+
+    const handleUpdateScore = async (submissionId) => {
+        const updatedScore = updatedScores[submissionId];
+        if (updatedScore === undefined) {
+            return alert("Please enter a new score.");
+        }
+        
+        try {
+            const response = await axios.put(`http://localhost:8080/class/updateScore/${submissionId}`, { score: updatedScore }, { withCredentials: true });
+            toast.success("Score updated successfully!");
+            fetchSubmissionData(); 
+            
+        } catch (err) {
+            console.log(err)
+            toast.error("Failed to update score.");
+        }
+    };
+
+    // Group submissions by assignmentId._id
+const submissionsByAssignment = submissionData.reduce((acc, submission) => {
+  const assignmentId = submission.assignmentId._id;
+  if (!acc[assignmentId]) {
+    acc[assignmentId] = {
+      assignment: submission.assignmentId,
+      submissions: []
+    };
+  }
+  acc[assignmentId].submissions.push(submission);
+  return acc;
+}, {});
+
     if (loading) return (
         <div className="min-h-screen flex items-center justify-center">
             <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-600"></div>
@@ -225,6 +264,8 @@ const ViewClass = ({user}) => {
             <span className="font-medium">{label}</span>
         </button>
     );
+
+    
 
     return (
         <div className="max-w-7xl mx-auto px-4 mt-[40px]">
@@ -458,9 +499,96 @@ const ViewClass = ({user}) => {
                                 <p className="text-center py-6 text-gray-500 italic">No submission data available</p>
                             )}
                         </div>
+
+                    
+                </div>
+                )}
+
+                {activeTab === "review" && (
+                    <div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-6 pb-2 border-b border-gray-200">Submissions by Assignment</h3>
+                        {Object.values(submissionsByAssignment).map(({ assignment, submissions }) => (
+  <div key={assignment._id} className="mb-6 border rounded-lg shadow">
+    <button
+      className="w-full text-left px-6 py-4 bg-blue-50 hover:bg-blue-100 font-semibold text-blue-700 text-lg rounded-t-lg transition"
+      onClick={() => setOpenAssignmentId(openAssignmentId === assignment._id ? null : assignment._id)}
+    >
+      Assignment Title : {assignment.title}
+    </button>
+    {openAssignmentId === assignment._id && (
+      <div className="overflow-x-auto p-4 bg-white rounded-b-lg">
+        <table className="min-w-full bg-white rounded-lg shadow overflow-hidden">
+          <thead>
+            <tr className="bg-blue-100 text-blue-800">
+              <th className="py-3 px-4 text-left font-semibold">Student</th>
+              <th className="py-3 px-4 text-left font-semibold">Submission</th>
+              <th className="py-3 px-4 text-left font-semibold">Assignment File</th>
+              <th className="py-3 px-4 text-left font-semibold">Assignment Solution</th>
+              <th className="py-3 px-4 text-left font-semibold">Score</th>
+              <th className="py-3 px-4 text-left font-semibold">Update Score</th>
+            </tr>
+          </thead>
+          <tbody>
+            {submissions.map((submission, index) => (
+              <tr
+                key={submission._id}
+                className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}
+              >
+                <td className="py-3 px-4">{submission.studentId.username}</td>
+                <td className="py-3 px-4">
+                  {new Date(submission.submittedOn) <= new Date(assignment.deadline)
+                    ? <span className="text-green-600 font-medium">Before Deadline</span>
+                    : <span className="text-red-600 font-medium">After Deadline</span>
+                  }
+                </td>
+                <td className="py-3 px-4">
+                  <a
+                    href={assignment.file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Assignment
+                  </a>
+                </td>
+                <td className="py-3 px-4">
+                  <a
+                    href={submission.file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    View Solution
+                  </a>
+                </td>
+                <td className="py-3 px-4 font-semibold text-center">{submission.aiGrade.score}</td>
+                <td className="py-3 px-4 flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="New Score"
+                    className="border border-gray-300 rounded px-2 py-1 w-20 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    onChange={(e) => handleScoreChange(submission._id, e.target.value)}
+                  />
+                  <button
+                    onClick={() => handleUpdateScore(submission._id)}
+                    className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition"
+                  >
+                    Update
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+))}
                     </div>
                 )}
             </div>
+
+
 
             <ToastContainer 
                 position="bottom-right"
