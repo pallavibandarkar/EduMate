@@ -42,7 +42,7 @@ const Sidebar = ({ user, isOpen, toggleSidebar }) => {
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
         {isOpen && (
           <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            TeachWell
+            EduMate
           </h1>
         )}
         <button

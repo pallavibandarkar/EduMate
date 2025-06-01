@@ -843,7 +843,7 @@ async def grade_document(request: GradeRequest):
         grade_logger.info("Calling process_document function")
         result = process_document(request.file_url)
         grade_logger.info(f"process_document returned success={result['success']}")
-        
+
         if result['success']:
             grade_logger.info(f"Grading successful, returning results with {len(result['results'])} items")
             return {"success": True, "results": result['results']}

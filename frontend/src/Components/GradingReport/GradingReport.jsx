@@ -33,13 +33,13 @@ const GradingReport = () => {
     };
 
     return (
-        <div className="w-4/5 bg-white p-5 rounded-xl shadow-md text-center transition-all duration-300 ease-in-out mx-auto mt-24 hover:shadow-lg md:w-4/5 sm:w-11/12">
+        <div className="w-4/5 bg-white p-5 rounded-xl shadow-md text-center transition-all duration-300 ease-in-out mx-auto mt-5 hover:shadow-lg md:w-4/5 sm:w-11/12">
             <h2 className="text-2xl text-gray-800 mb-4">Grading Report</h2>
             <div className="bg-blue-50 p-4 rounded-lg text-lg font-bold text-blue-600 mb-4">
-                <h3>Score: {data.score}/100</h3>
+                <h1 className="font-medium text-2xl py-4">Score: {data.score}/100</h1>
             </div>
             <div className="bg-orange-50 p-4 mt-3 rounded-lg text-left">
-                <h3 className="text-orange-700">Remarks:</h3>
+                <h1 className="text-orange-700 font-medium text-xl py-4">Remarks:</h1>
                 <ul className="list-disc pl-5 text-gray-600">
                     {splitText(data.remarks)?.map((remark, index) => (
                         <li key={index} className="text-base mb-1.5 leading-relaxed">{remark}</li>
@@ -47,7 +47,7 @@ const GradingReport = () => {
                 </ul>
             </div>
             <div className="bg-green-50 p-4 mt-3 rounded-lg text-left">
-                <h3 className="text-green-700">Suggestions:</h3>
+                <h1 className="text-green-700 font-medium text-xl py-4">Suggestions:</h1>
                 <ul className="list-disc pl-5 text-gray-600">
                     {splitText(data.suggestions)?.map((suggestion, index) => (
                         <li key={index} className="text-base mb-1.5 leading-relaxed">{suggestion}</li>
@@ -55,7 +55,7 @@ const GradingReport = () => {
                 </ul>
             </div>
             <div className="bg-red-50 p-4 mt-3 rounded-lg text-left">
-                <h3 className="text-red-700">Errors:</h3>
+                <h1 className="text-red-700 font-medium text-xl py-4">Errors:</h1>
                 <ul className="list-disc pl-5 text-gray-600">
                     {splitText(data.errors)?.map((error, index) => (
                         <li key={index} className="text-base mb-1.5 leading-relaxed">{error}</li>

@@ -4,7 +4,7 @@ import os
 import tempfile
 import traceback
 import logging
-from google import genai
+import google.generativeai as genai
 from google.generativeai import types
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Tuple, TypedDict, Union
@@ -70,16 +70,11 @@ def prepare_document(file_path: str) -> Dict[str, Any]:
     Returns: Dictionary with raw response
     """
     try:
-        # Initialize the Google AI client
-        logger.info(f"Initializing Google AI client for file: {file_path}")
-        client = genai.Client(api_key=GOOGLE_API_KEY)
-        
-        # Upload the file
+        genai.configure(api_key=GOOGLE_API_KEY)
         logger.info("Uploading file to Google AI")
-        uploaded_file = client.files.upload(file=file_path)
-        logger.info(f"File uploaded successfully: {uploaded_file}") # Log the full file object for details
-        
-        # First prompt for general analysis
+        uploaded_file = genai.upload_file(file_path)
+        logger.info(f"File uploaded successfully: {uploaded_file}")
+
         initial_prompt = """
         Analyze this academic paper and provide feedback. Include:
         1. Overall quality score (0-100)
@@ -87,28 +82,17 @@ def prepare_document(file_path: str) -> Dict[str, Any]:
         3. Areas that need improvement
         4. Any errors or problems found
         """
-        
-        # Get initial response - Corrected Part.from_uri usage
+
         logger.info("Generating content with Gemini model")
-        initial_response = client.models.generate_content(
-            model="gemini-1.5-flash", # Using 1.5 flash as it's generally better with files
-            contents=[{
-                "role": "user",
-                "parts": [
-                    # Pass URI as positional argument
-                    genai.types.Part.from_uri(uploaded_file.uri, mime_type=uploaded_file.mime_type),
-                    genai.types.Part.from_text(initial_prompt)
-                ]
-            }]
-        )
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        initial_response = model.generate_content([uploaded_file, initial_prompt])
         logger.info("Successfully received initial response from Gemini")
-        
+
         return {
-            "success": True, 
+            "success": True,
             "uploaded_file": uploaded_file,
             "initial_response": initial_response.text
         }
-        
     except Exception as e:
         logger.error(f"Error preparing document: {str(e)}")
         logger.error(f"Exception type: {type(e).__name__}")
@@ -124,10 +108,10 @@ def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
         if not initial_result["success"]:
             logger.warning("Skipping analysis as initial result was not successful")
             return initial_result
-            
-        logger.info("Initializing Google AI client for structured analysis")
-        client = genai.Client(api_key=GOOGLE_API_KEY)
-        
+
+        logger.info("Configuring Google AI for structured analysis")
+        genai.configure(api_key=GOOGLE_API_KEY)
+
         structure_prompt = f"""
         Convert the following feedback into a structured JSON format:
 
@@ -145,19 +129,18 @@ def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
         Ensure all arrays are empty lists [] instead of null when there are no items.
         Ensure Name is an empty string "" if no name is found.
         """
-        
+
         # Get structured response with simpler structure
         logger.info("Generating structured JSON response")
-        structured_response = client.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=[structure_prompt],
-            config={ 'response_mime_type': 'application/json' }
+        model = genai.GenerativeModel("gemini-2.0-flash")
+        structured_response = model.generate_content(
+            structure_prompt,
+            generation_config={ 'response_mime_type': 'application/json' }
         )
         logger.info("Successfully received structured response from Gemini")
 
         # Parse the response safely
         try:
-            # Clean the response text to ensure it's valid JSON
             response_text = structured_response.text.strip()
             logger.debug(f"Raw response text: {response_text[:100]}...")
             if response_text.startswith("```json"):
@@ -165,19 +148,18 @@ def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
             if response_text.endswith("```"):
                 response_text = response_text[:-3]
             response_text = response_text.strip()
-            
+
             logger.info("Parsing JSON response")
             data = json.loads(response_text)
-            
-            # Ensure data structure is correct and all fields are valid
+
             if isinstance(data, dict):
                 logger.info("Normalizing JSON fields")
-                data["marks"] = int(data.get("marks", 0))  # Convert to int, default to 0
-                data["Name"] = str(data.get("Name", ""))  # Convert to string, default to empty string
+                data["marks"] = int(data.get("marks", 0))
+                data["Name"] = str(data.get("Name", ""))
                 data["remarks"] = list(data.get("remarks", []))
                 data["suggestions"] = list(data.get("suggestions", []))
                 data["errors"] = list(data.get("errors", []))
-            
+
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {str(e)}")
             logger.error(f"Failed JSON text: {response_text}")
@@ -188,17 +170,17 @@ def analyze_document(initial_result: Dict[str, Any]) -> Dict[str, Any]:
             logger.error(f"Problematic data: {data}")
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {"success": False, "error": f"Invalid value conversion: {str(e)}"}
-        
+
         if not isinstance(data, list):
             logger.info("Converting single result to list format")
             data = [data]
-            
+
         logger.info(f"Creating {len(data)} PaperCheckResult objects")
         results = [PaperCheckResult(**item) for item in data]
         final_results = {"success": True, "results": [r.model_dump() for r in results]}
         logger.info("Successfully completed document analysis")
         return final_results
-        
+
     except Exception as e:
         logger.error(f"Error analyzing document: {str(e)}")
         logger.error(f"Exception type: {type(e).__name__}")
