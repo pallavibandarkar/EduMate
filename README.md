@@ -1,10 +1,10 @@
-# 🎓 EduMate – AI-Powered Teacher Assistant
+# EduMate – AI-Powered Teacher Assistant
 
 EduMate is an intelligent classroom platform that empowers teachers to manage classes and assignments, while helping students stay on track — powered by AI for grading, feedback, and curriculum assistance.
 
 ---
 
-## 📌 Project Overview
+## Project Overview
 
 EduMate simplifies classroom workflows by allowing teachers to:
 - Create and manage classes
@@ -20,7 +20,7 @@ Students can:
 
 ---
 
-## ✨ Features
+## Features
 
 - **Teacher Dashboard**: Create classes, post assignments, track submissions
 - **Student Panel**: Join classes, view deadlines, and submit assignments
